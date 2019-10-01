@@ -160,13 +160,9 @@ void traverseFiles(char *dirpath)
     DIR				*dp;
 	struct dirent	*dirp;
     if ((dp = opendir(dirpath)) == NULL)
-    {
         fprintf(stderr, "ls: %s : %s\n", dirpath,strerror(errno));
-    }
     while ((dirp = readdir(dp)) != NULL)
-    {
 		printf("%s\n", dirp->d_name);
-    }
     
     closedir(dp);
 }

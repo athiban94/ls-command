@@ -10,7 +10,7 @@ TARGET = ls
 all: $(TARGET)
 
 $(TARGET): $(TARGET).c 
-		$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c
+		$(CC) -o $(TARGET) $(TARGET).c
 
 clean: 
 		rm $(TARGET)

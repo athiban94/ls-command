@@ -1,52 +1,52 @@
 #include "print.h"
 
 
-// int main() {
-//     struct stat sb;
-//     struct printOPT options;
-//     char *pathname = "dir1/hellowo";
-//     struct passwd *pws;
-//     struct group *grp;
-//     int uid;
-//     char *mode_str;
-//     time_t m_time;
-//     struct tm *time_data;
-//     char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-//     int hr;
-//     int min;
+int main() {
+    struct stat sb;
+    struct printOPT options;
+    char *pathname = "dir1/hellowo";
+    struct passwd *pws;
+    struct group *grp;
+    int uid;
+    char *mode_str;
+    time_t m_time;
+    struct tm *time_data;
+    char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    int hr;
+    int min;
 
-//     options = initialize_options_null();
-//     if(stat(pathname, &sb) == -1) {
-//         printf("error getting info of %s : %s\n", pathname, strerror(errno));
-//         exit(EXIT_FAILURE); // Remove it after 
-//     }
+    options = initialize_options_null();
+    if(stat(pathname, &sb) == -1) {
+        printf("error getting info of %s : %s\n", pathname, strerror(errno));
+        exit(EXIT_FAILURE); // Remove it after 
+    }
 
-//     options.i_node = sb.st_ino;
+    options.i_node = sb.st_ino;
 
-//     strmode(sb.st_mode, mode_str);
-//     options.f_mode = mode_str;
+    strmode(sb.st_mode, mode_str);
+    options.f_mode = mode_str;
 
-//     options.h_links = sb.st_nlink;
+    options.h_links = sb.st_nlink;
 
-//     pws = getpwuid(sb.st_uid);
-//     options.user_name = pws->pw_name;
+    pws = getpwuid(sb.st_uid);
+    options.user_name = pws->pw_name;
 
-//     grp = getgrgid(sb.st_gid);
-//     options.groupname = grp->gr_name;
+    grp = getgrgid(sb.st_gid);
+    options.groupname = grp->gr_name;
 
-//     options.f_size = sb.st_size;
-//     m_time = sb.st_mtime;
+    options.f_size = sb.st_size;
+    m_time = sb.st_mtime;
 
-//     // options.mtime = sb.st_mtime;
+    // options.mtime = sb.st_mtime;
     
-//     time_data = localtime(&m_time);
-//     options.month = month_list[time_data->tm_mon];
-//     options.day = time_data->tm_mday;
-//     options.hour = time_data->tm_hour;
-//     options.minute = time_data->tm_min;
+    time_data = localtime(&m_time);
+    options.month = month_list[time_data->tm_mon];
+    options.day = time_data->tm_mday;
+    options.hour = time_data->tm_hour;
+    options.minute = time_data->tm_min;
 
-//     display_out(options, pathname);
-// }
+    display_out(options, pathname);
+}
 
 void display_out(struct printOPT options, char* pathname) {
 
