@@ -4,7 +4,7 @@
 int main() {
     struct stat sb;
     struct printOPT options;
-    char *pathname = "dir1/hellowo";
+    char *pathname = ".";
     struct passwd *pws;
     struct group *grp;
     int uid;
