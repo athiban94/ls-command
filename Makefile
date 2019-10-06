@@ -6,11 +6,12 @@ CFLAGS  = -ansi -g -Wall -Werror -Wextra -Wformat=2 -Wjump-misses-init -Wlogical
 
 # the build target executable:
 TARGET = ls
+PRINT = print
 
 all: $(TARGET)
 
 $(TARGET): $(TARGET).c 
-		$(CC) -o $(TARGET) $(TARGET).c
+		$(CC) -o $(TARGET) $(TARGET).c $(PRINT).c
 
 clean: 
 		rm $(TARGET)

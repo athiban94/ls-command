@@ -8,12 +8,14 @@
 #include <errno.h>
 #include <unistd.h>
 #include <limits.h>
+#include <stdbool.h>
 #include "print.h"
 
 struct f_error { char *f_error_path; };
 struct f_non_dir { char *f_non_dirname; };
 struct f_dir { char *f_dirname; };
 
+int argumentC = 0;
 int a_flag = 0;
 int A_flag = 0;
 int c_flag = 0;
@@ -39,3 +41,7 @@ void print_errors_args(struct f_error [], int size);
 void print_non_directories(struct f_non_dir [], int size);
 void traverseDirs(struct f_dir [], int size);
 void traverseFiles(char*);
+void traverse_FTS(char**);
+void generatePrint(FTSENT *);
+void printFiles(char*);
+bool isDisplayParent();
