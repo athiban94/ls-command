@@ -8,7 +8,8 @@ int main(int argc, char *argv[])
     struct stat sb;
     char **arguments;
     argumentC = argc;
-
+    compar = &sortLexographical;
+    uid_t userId;
     while ((c = getopt(argc, argv, "AacdFfhiklnqRrSstuw")) != -1)
     {
         switch (c)
@@ -30,6 +31,7 @@ int main(int argc, char *argv[])
                 break;
             case 'f':
                 f_flag = 1;
+                compar = NULL;
                 break;
             case 'h':
                 h_flag = 1;
@@ -37,8 +39,29 @@ int main(int argc, char *argv[])
             case 'l':
                 l_flag = 1;
                 break;
+            case 'n':
+                n_flag = 1;
+                l_flag = 1;
+                break;
             case 'i':
                 i_flag = 1;
+                break;
+            case 'r':
+                r_flag = 1;
+                compar = &sortReverseLexographical;
+                break;
+            case 's':
+                s_flag = 1;
+                break;
+            case 'S':
+                S_flag = 1;
+                compar = &sortFileSizeDescending;
+                break;
+            case 't':
+                compar = &sortFilesByModifiedTime;
+                break;
+            case 'u':
+                compar = &sortFilesByAccessTime;
                 break;
             case '?':
                 fprintf(stderr, "ls: unknown option `-%c'.\n", optopt);
@@ -47,6 +70,16 @@ int main(int argc, char *argv[])
             default:
                 abort();
         }
+    }
+
+    /* Setting the -A flag if the root is running the process*/
+    userId = getuid();
+    if(userId == 0) {
+        A_flag = 1;
+    }
+
+    if(s_flag) {
+        getBlocksAllocated();
     }
 
     if(optind == argc) 
@@ -72,7 +105,9 @@ int main(int argc, char *argv[])
         }
         else 
         {
-            printFiles(argv[optind]);
+            arguments = malloc(1 * sizeof(char*));
+            arguments[0] = argv[optind];
+            parseArgFiles(arguments);
         }
     }
     else
@@ -154,11 +189,13 @@ void print_errors_args(struct f_error f_error[], int len)
  * */
 void print_non_directories(struct f_non_dir non_dir[], int len)
 {
+    char **args = malloc(len * sizeof(char*));
     for (int i = 0; i < len; i++)
     {
-        printf("%s\t", non_dir[i].f_non_dirname);
+        // printf("%s\t", non_dir[i].f_non_dirname);
+        args[i] = non_dir[i].f_non_dirname;
     }
-    printf("\n");
+    parseArgFiles(args);
 }
 
 /**
@@ -188,17 +225,19 @@ void traverseDirs(struct f_dir dirs[], int len)
  * Function to traverse all the files using
  * FTS(3)
  * */
-
 void traverse_FTS(char **args) {
     FTS *ftsp;
     FTSENT *ftsent;
     FTSENT *children;
     int options = FTS_PHYSICAL | FTS_NOCHDIR;
 
-    if(a_flag)
+    if(a_flag) {
         options = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT;
+        A_flag = 1;
+    }
 
-    if((ftsp = fts_open(args, options, NULL)) == NULL) {
+
+    if((ftsp = fts_open(args, options, compar)) == NULL) {
         //double check with professor - not throwing error for invalid
         fprintf(stderr, "ls : %s\n", strerror(errno));
         exit(EXIT_SUCCESS);
@@ -226,8 +265,13 @@ void traverse_FTS(char **args) {
             printf("%s:\n", children->fts_parent->fts_path);
         }
         while (children != NULL) {
-            printf("%s\n", children->fts_name);
-            generatePrint(children);
+            // printf("%s\n", children->fts_name);
+            if(strncmp(children->fts_name, ".", 1) == 0) {
+                if(A_flag)
+                    generatePrint(children);
+            } else {
+                generatePrint(children);
+            }
             children = children->fts_link;
         }
     }
@@ -259,98 +303,304 @@ void generatePrint(FTSENT *ftsent) {
     struct stat *stat_info;
     struct printOPT options;
     char *mode_str = malloc(10);
+    char *h_filesize;
+    char *h_blocksize;
     struct passwd *pws;
     struct group *grp;
-    time_t m_time;
+    time_t time;
     struct tm *time_data;
+    char *path = malloc(ftsent->fts_pathlen + ftsent->fts_namelen + 1);
     char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-
+    strcpy(path, ftsent->fts_path);
+    strcat(path, ftsent->fts_name);
+    char buf[PATH_MAX];
+    ssize_t len;
+    char *filename_F = malloc(ftsent->fts_namelen + 2);
+    blkcnt_t file_blocks;
     
     /* Getting the stat informnation */
     stat_info = ftsent->fts_statp;
     options = initialize_options_null();
 
+    if(s_flag) {
+        if(h_flag) {
+            options.h_blocksize = generateHumanReadableSize(512 * stat_info->st_blocks);
+        } else  {
+            file_blocks = calculateBlockSize(stat_info->st_blocks);
+            options.display_blocks = true;
+            options.blocks_used = file_blocks;
+        }
+        // printf("block size :: %lli ", file_blocks);
+    }
     
     /* i-flag - option */
     if(i_flag)
         options.i_node = stat_info->st_ino;
         
     if(l_flag) {
+        options.display_file_size = true;
         strmode(stat_info->st_mode, mode_str);
         options.f_mode = mode_str;
 
         options.h_links = stat_info->st_nlink;
 
-        pws = getpwuid(stat_info->st_uid);
-        options.user_name = pws->pw_name;
+        if(n_flag) {
+            /* -n option when enabled displaying uid and gid */
+            options.display_uid_gid = true;
+            options.uid = stat_info->st_uid;
+            options.gid = stat_info->st_gid;
+        } else {
+            pws = getpwuid(stat_info->st_uid);
+            options.user_name = pws->pw_name;
 
-        grp = getgrgid(stat_info->st_gid);
-        options.groupname = grp->gr_name;
+            grp = getgrgid(stat_info->st_gid);
+            options.groupname = grp->gr_name;
+        }
 
         options.f_size = stat_info->st_size;
 
-        m_time = stat_info->st_mtime;
-        time_data = localtime(&m_time);
+        if(h_flag){
+            options.display_file_size = false;
+            options.h_filesize = generateHumanReadableSize(stat_info->st_size);
+        }
+
+        if(c_flag) {
+            time = stat_info->st_ctime;
+        } else {
+            time = stat_info->st_mtime;
+        }
+        time_data = localtime(&time);
         options.month = month_list[time_data->tm_mon];
         options.day = time_data->tm_mday;
         options.hour = time_data->tm_hour;
         options.minute = time_data->tm_min;
+
+        if (ftsent->fts_info == FTS_SL)
+        {
+            if ((len = readlink(path, buf, sizeof(buf)-1)) == -1) {
+                fprintf(stderr, "ls: %s: %s\n", ftsent->fts_name, strerror(errno));
+            } else {
+                buf[len] = '\0';
+                options.sym_link = buf;
+            }
+        }
     }
 
+    if(F_flag) {
+        strcpy(filename_F, ftsent->fts_name);
+        if(S_ISDIR(stat_info->st_mode))
+            strcat(filename_F, "/");
+        if(S_ISSOCK(stat_info->st_mode))
+            strcat(filename_F, "=");
+        if(S_ISFIFO(stat_info->st_mode))
+            strcat(filename_F, "|");
+        if(S_ISLNK(stat_info->st_mode))
+            strcat(filename_F, "@");
+        if(S_ISREG(stat_info->st_mode)){
+            if(stat_info->st_mode & S_IXUSR) {
+                strcat(filename_F, "*");
+            }
+        }
+        
+        options.f_name = filename_F;
+    } else {
+        options.f_name = ftsent->fts_name;
+    }
+    
+    // printf("path : %s\n", path);
+    
     display_out(options, ftsent->fts_name);
+    free(path);
 }
 
 /**
- * This function is for printing files
+ * This function decides weather to display 
+ * parent directory - in case of multiple arguments 
+ * in the cli.
  * */
-void printFiles(char *pathname) {
-    struct stat sb;
-    struct printOPT options;
-    struct passwd *pws;
-    struct group *grp;
-    int uid;
-    char *mode_str = malloc(10);
-    time_t m_time;
-    struct tm *time_data;
-    char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-
-    options = initialize_options_null();
-    if(stat(pathname, &sb) == -1) {
-        fprintf(stderr, "ls: %s: %s\n", pathname, strerror(errno));
-        exit(EXIT_FAILURE);
-    }
-
-    if(i_flag)
-        options.i_node = sb.st_ino;
-
-    if(l_flag) {
-        strmode(sb.st_mode, mode_str);
-        options.f_mode = mode_str;
-
-        options.h_links = sb.st_nlink;
-
-        pws = getpwuid(sb.st_uid);
-        options.user_name = pws->pw_name;
-
-        grp = getgrgid(sb.st_gid);
-        options.groupname = grp->gr_name;
-
-        options.f_size = sb.st_size;
-        m_time = sb.st_mtime;
-
-        time_data = localtime(&m_time);
-        options.month = month_list[time_data->tm_mon];
-        options.day = time_data->tm_mday;
-        options.hour = time_data->tm_hour;
-        options.minute = time_data->tm_min;
-    }
-    display_out(options, pathname);
-}
-
-
 bool isDisplayParent() {
     if(optind == argumentC || optind == argumentC - 1)
         return false;
     else
         return true;
+}
+
+void parseArgFiles(char **args) {
+    FTS *ftsp;
+    FTSENT *ftsent;
+    int options = FTS_PHYSICAL | FTS_NOCHDIR;
+    if(a_flag) {
+        options = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT;
+        A_flag = 1;
+    }
+
+    if((ftsp = fts_open(args, options, compar)) == NULL) {
+        //double check with professor - not throwing error for invalid
+        fprintf(stderr, "ls : %s\n", strerror(errno));
+        exit(EXIT_SUCCESS);
+    }
+
+    while((ftsent = fts_read(ftsp)) != NULL) {
+        generatePrint(ftsent);
+    }
+    fts_close(ftsp);
+
+}
+
+
+/**
+ * This function allocates the blockSIZE varible 
+ * which is defined in ls.h, and which is then furthur
+ * used to calculate the number of file system 
+ * blocks actually used by each file
+ * */
+void getBlocksAllocated() {
+    char *e_blockValue;
+    bool inValidBlocksize = false;
+    e_blockValue = getenv("BLOCKSIZE");
+    if(e_blockValue == NULL) {
+        blockSIZE = 512;
+    }
+    
+    int len = strlen(e_blockValue);
+    if(len == 1) {
+        blockSIZE = 1;
+    }
+
+    for (int i = 0; i < strlen(e_blockValue); i++)
+    {
+        char ch =  e_blockValue[i];
+        long multiplier = 1024;
+        if(isalpha(ch)){
+            switch (ch)
+            {
+                case 'k':
+                case 'K':
+                    blockSIZE *= 1024;
+                    if(i != strlen(e_blockValue) -1) {
+                        inValidBlocksize = true;
+                    }
+                    break;
+                case 'M':
+                case 'm':
+                    blockSIZE *= 1024 * 1024;
+                    if(i != strlen(e_blockValue) -1) {
+                        inValidBlocksize = true;
+                    }
+                    break;
+                case 'G':
+                case 'g':
+                    blockSIZE *= 1024 * 1024 * 1024;
+                    if(i != strlen(e_blockValue) -1) {
+                        inValidBlocksize = true;
+                    }
+                    break;
+                default:
+                    inValidBlocksize = true;
+                    break;
+            }
+            if(inValidBlocksize){
+                break;
+            }
+        } else if(isdigit(ch)) {
+            blockSIZE = (blockSIZE * 10) + (long)(ch - '0');
+        } else {
+            inValidBlocksize = true;
+            break;
+        }
+    }
+    if(inValidBlocksize) {
+        fprintf(stderr, "ls: %s: unknown blocksize\n", e_blockValue);
+        fprintf(stderr, "ls: maximum blocksize is 1G\n");
+        fprintf(stderr, "ls: %s: minimum blocksize is 512\n", e_blockValue);
+        blockSIZE = 512;
+    } else {
+        if(blockSIZE < 512) {
+            fprintf(stderr, "ls: %lli: minimum blocksize is 512\n", blockSIZE);
+            blockSIZE = 512;
+        }
+        else if(blockSIZE > 512 && blockSIZE <= 1024 * 1024 * 1024){
+            
+        }
+        else {
+            fprintf(stderr, "ls: %lli: maximum blocksize is 1G\n", blockSIZE);
+            blockSIZE = 1024 * 1024 * 1024;
+        }
+    }
+}
+
+
+/**
+ * This fucntion calculates the number of file 
+ * system blocks actually used by each file,
+ * */
+blkcnt_t calculateBlockSize(blkcnt_t blocks) {
+    blkcnt_t ret_blockSize;
+    ret_blockSize = blocks / (blockSIZE / 512);
+    return ret_blockSize;
+}
+
+
+/**
+ * This is a function which generates human 
+ * readable size format
+ * */
+char* generateHumanReadableSize(off_t size) {
+    
+    int i = 0;
+    int n;
+    float acc_Size = size;
+    char *units[] = {"B", "K", "M", "G", "T"};
+    double num;
+    n = numOfDigits(size);
+    char *return_str_size = malloc(n + 2);
+    
+    while (size >= 1024) {
+        size /= 1024;
+        i++;
+    }
+    
+    if(i == 0) {
+        sprintf(return_str_size, "%d%s", size, units[i]);
+    } else {
+        if(units[i] == "K") {
+            num = (double)acc_Size / (double)1024;
+            if(num > 9) {
+                int size = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size, units[i]);
+            } else {
+                sprintf(return_str_size, "%.1f%s", num, units[i]);
+            }
+
+        } else if(units[i] == "M") {
+            num = (double)acc_Size / (double)(1024 * 1024);
+            if(num > 9) {
+                int size = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size, units[i]);
+            } else {
+                sprintf(return_str_size, "%.1f%s", num, units[i]);
+            }
+        } else {
+            // acc_Size /= (1024 * 1024 * 1024);
+            num = (double)acc_Size / (double)(1024 * 1024 * 1024);
+            if(num > 9) {
+                int size = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size, units[i]);
+            } else {
+                sprintf(return_str_size, "%.1f%s", num, units[i]);
+            }
+        }
+    }
+    char  *result = strdup(return_str_size);
+    free(return_str_size);
+    return result;
+}
+
+int numOfDigits(long long num) {
+    int count = 1;
+    while(num != 0) {
+        num /= 10;
+        ++count;
+    }
+    return count;
 }

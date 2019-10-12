@@ -9,7 +9,10 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <ctype.h>
+#include <math.h>
 #include "print.h"
+#include "cmp.h"
 
 struct f_error { char *f_error_path; };
 struct f_non_dir { char *f_non_dirname; };
@@ -36,6 +39,9 @@ int t_flag = 0;
 int u_flag = 0;
 int w_flag = 0;
 
+blkcnt_t blockSIZE = 0;
+
+
 void handleMuliplePaths(int, int, int, int, char**);
 void print_errors_args(struct f_error [], int size);
 void print_non_directories(struct f_non_dir [], int size);
@@ -43,5 +49,9 @@ void traverseDirs(struct f_dir [], int size);
 void traverseFiles(char*);
 void traverse_FTS(char**);
 void generatePrint(FTSENT *);
-void printFiles(char*);
+void parseArgFiles(char**);
 bool isDisplayParent();
+void getBlocksAllocated();
+blkcnt_t calculateBlockSize(blkcnt_t blocks);
+char* generateHumanReadableSize(off_t);
+int numOfDigits(long long num);

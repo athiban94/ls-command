@@ -52,25 +52,36 @@ void display_out(struct printOPT options, char* pathname) {
 
     if(options.i_node != 0)
         printf("%llu ", options.i_node);
+    if(options.display_blocks)
+        printf("%lli ", options.blocks_used);
+    if(options.h_blocksize != NULL)
+        printf("%s ", options.h_blocksize);
     if(options.f_mode != NULL)
         printf("%s ", options.f_mode);
     if(options.h_links != 0)
         printf("%hu ", options.h_links);
+    if(options.display_uid_gid)
+        printf("%lu %lu ", options.uid, options.gid);
     if(options.user_name != NULL)
         printf("%s ", options.user_name);
     if(options.groupname != NULL)
         printf("%s ", options.groupname);
-    if(options.f_size != 0)
+    if(options.display_file_size)
         printf("%lld ", options.f_size);
+    if(options.h_filesize != NULL)
+        printf("%s ", options.h_filesize);
     if(options.month != NULL)
         printf("%s ", options.month);
     if(options.day != 0)
         printf("%d ", options.day);
     if(options.hour != 0)
-        printf("%d:", options.hour);
+        printf("%02d:", options.hour);
     if(options.minute != 0)
-        printf("%d ", options.minute);
-    printf("%s", pathname);
+        printf("%02d ", options.minute);
+    if(options.f_name != NULL)
+        printf("%s", options.f_name);
+    if(options.sym_link != NULL)
+        printf(" -> %s", options.sym_link);
 
     printf("\n");
 }
@@ -78,16 +89,23 @@ void display_out(struct printOPT options, char* pathname) {
 struct printOPT initialize_options_null() {
     struct printOPT opt;
     opt.i_node = 0;
+    opt.blocks_used = 0;
+    opt.h_blocksize = NULL;
     opt.f_mode = NULL;
     opt.h_links = 0;
     opt.user_name = NULL;
     opt.groupname = NULL;
     opt.f_size = 0;
+    opt.h_filesize = NULL;
     opt.month = NULL;
     opt.day = 0;
     opt.hour = 0;
     opt.minute = 0;
     opt.f_name = NULL;
+    opt.sym_link = NULL;
+    opt.display_uid_gid = false;
+    opt.display_file_size = false;
+    opt.display_blocks = false;
     return opt;
 }
 
