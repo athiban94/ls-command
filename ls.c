@@ -36,6 +36,9 @@ int main(int argc, char *argv[])
             case 'h':
                 h_flag = 1;
                 break;
+            case 'k':
+                k_flag = 1;
+                break;
             case 'l':
                 l_flag = 1;
                 break;
@@ -50,6 +53,9 @@ int main(int argc, char *argv[])
                 r_flag = 1;
                 compar = &sortReverseLexographical;
                 break;
+            case 'R':
+                R_flag = 1;
+                break;
             case 's':
                 s_flag = 1;
                 break;
@@ -63,6 +69,14 @@ int main(int argc, char *argv[])
             case 'u':
                 compar = &sortFilesByAccessTime;
                 break;
+            case 'q':
+                q_flag = 1;
+                w_flag = 0;
+                break;
+            case 'w':
+                w_flag = 1;
+                q_flag = 0;
+                break;
             case '?':
                 fprintf(stderr, "ls: unknown option `-%c'.\n", optopt);
                 fprintf(stderr, "usage: ls [ −AacdFfhiklnqRrSstuw] [file . . .]\n");
@@ -72,6 +86,14 @@ int main(int argc, char *argv[])
         }
     }
 
+    if(isatty(fileno(stdout))) {
+        if(!w_flag) {
+            q_flag = 1;
+        }
+    } else {
+        w_flag  = 1;
+    }
+
     /* Setting the -A flag if the root is running the process*/
     userId = getuid();
     if(userId == 0) {
@@ -79,13 +101,17 @@ int main(int argc, char *argv[])
     }
 
     if(s_flag) {
-        getBlocksAllocated();
+        if(k_flag) {
+            blockSIZE = 1024;
+        } else  {
+            getBlocksAllocated();
+        }
     }
 
     if(optind == argc) 
     {
         arguments = malloc(1 * sizeof(char*));
-        arguments[0] = ".";
+        arguments[0] = "./";
         traverse_FTS(arguments);
         // traverseFiles(".");
     }
@@ -98,8 +124,15 @@ int main(int argc, char *argv[])
         }
         else if(S_ISDIR(sb.st_mode)) 
         {
+            // arguments = malloc(1 * sizeof(char*));
+            // arguments[0] = argv[optind];
             arguments = malloc(1 * sizeof(char*));
-            arguments[0] = argv[optind];
+            if(argv[optind] == ".")
+                arguments[0] = "./";
+            else if(argv[optind] == "..")
+                arguments[0] = "../";
+            else 
+                arguments[0] = argv[optind];
             // traverseFiles(argv[optind]);
             traverse_FTS(arguments);
         }
@@ -156,12 +189,20 @@ void handleMuliplePaths(int n_ferr, int n_dir, int n_nondir, int argc, char **ar
         }
     }
 
-    if (i_ferr > 0)
-        print_errors_args(f_err, i_ferr);
-    if (i_nondir > 0)
-        print_non_directories(f_nondir, i_nondir);
-    if (i_ndir > 0)
-        traverseDirs(f_directories, i_ndir);
+    if(d_flag) {
+        if (i_ferr > 0)
+            print_errors_args(f_err, i_ferr);
+        if (i_nondir > 0 || i_ndir > 0)
+            traverseDOption(f_nondir, i_nondir, f_directories, i_ndir);
+    } else {
+        if (i_ferr > 0)
+            print_errors_args(f_err, i_ferr);
+        if (i_nondir > 0)
+            print_non_directories(f_nondir, i_nondir);
+        if (i_ndir > 0)
+            traverseDirs(f_directories, i_ndir);
+    }
+
 }
 
 /**
@@ -245,7 +286,7 @@ void traverse_FTS(char **args) {
 
     while ((ftsent = fts_read(ftsp)) != NULL)
     {
-        if(ftsent->fts_level > 1) {
+        if(ftsent->fts_level > 1 && !R_flag) {
             fts_set(ftsp, ftsent, FTS_SKIP);
             continue;
         }
@@ -256,7 +297,7 @@ void traverse_FTS(char **args) {
             continue;
         }
 
-        if(children->fts_level > 1){
+        if(children->fts_level > 1 && !R_flag){
             continue;
         }
 
@@ -265,15 +306,20 @@ void traverse_FTS(char **args) {
             printf("%s:\n", children->fts_parent->fts_path);
         }
         while (children != NULL) {
-            // printf("%s\n", children->fts_name);
             if(strncmp(children->fts_name, ".", 1) == 0) {
-                if(A_flag)
+                if(A_flag) {
                     generatePrint(children);
+                }
             } else {
                 generatePrint(children);
             }
             children = children->fts_link;
         }
+
+
+        // if((fts_set(ftsp, ftsent, FTS_AGAIN)) == -1) {
+        //     fprintf(stderr, " error : %s", strerror(errno));
+        // }
     }
 
     fts_close(ftsp);
@@ -311,8 +357,12 @@ void generatePrint(FTSENT *ftsent) {
     struct tm *time_data;
     char *path = malloc(ftsent->fts_pathlen + ftsent->fts_namelen + 1);
     char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
-    strcpy(path, ftsent->fts_path);
-    strcat(path, ftsent->fts_name);
+    if(ftsent->fts_level == 0) {
+        strcpy(path, ftsent->fts_path);
+    } else {
+        strcpy(path, ftsent->fts_path);
+        strcat(path, ftsent->fts_name);
+    }
     char buf[PATH_MAX];
     ssize_t len;
     char *filename_F = malloc(ftsent->fts_namelen + 2);
@@ -401,12 +451,16 @@ void generatePrint(FTSENT *ftsent) {
                 strcat(filename_F, "*");
             }
         }
+        if(ftsent->fts_info == FTS_W) {
+            strcat(filename_F, "%");
+        }
         
         options.f_name = filename_F;
     } else {
         options.f_name = ftsent->fts_name;
     }
     
+    options.f_name = checkNonPrintChars(options.f_name);
     // printf("path : %s\n", path);
     
     display_out(options, ftsent->fts_name);
@@ -419,10 +473,36 @@ void generatePrint(FTSENT *ftsent) {
  * in the cli.
  * */
 bool isDisplayParent() {
-    if(optind == argumentC || optind == argumentC - 1)
-        return false;
-    else
+    if (R_flag)
         return true;
+    else if(optind == argumentC || optind == argumentC - 1)
+        return false;
+    else {
+        return true;
+    }
+}
+
+/**
+ * This function is called when -d option is set.
+ * */
+void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_dir[], int n_dirs){
+    int totalSizeArgs = n_files + n_dirs;
+    char **d_arguments = malloc(totalSizeArgs * sizeof(char*));
+    int j = 0;
+    for (int i = 0; i < n_files; i++)
+    {
+        d_arguments[j] = f_non_dir[i].f_non_dirname;
+        j++;
+    }
+
+    for (int i = 0; i < n_dirs; i++)
+    {
+        d_arguments[j] = f_dir[i].f_dirname;
+        j++;
+    }
+    
+    parseArgFiles(d_arguments);
+    free(d_arguments);
 }
 
 void parseArgFiles(char **args) {
@@ -441,6 +521,14 @@ void parseArgFiles(char **args) {
     }
 
     while((ftsent = fts_read(ftsp)) != NULL) {
+        if (ftsent->fts_level > 0) {
+            fts_set(ftsp, ftsent, FTS_SKIP);
+            continue;
+        } 
+        else if (ftsent->fts_info == FTS_DP) {
+            continue;
+        }
+        // printf("%s \n", ftsent->fts_path);
         generatePrint(ftsent);
     }
     fts_close(ftsp);
@@ -519,8 +607,8 @@ void getBlocksAllocated() {
             fprintf(stderr, "ls: %lli: minimum blocksize is 512\n", blockSIZE);
             blockSIZE = 512;
         }
-        else if(blockSIZE > 512 && blockSIZE <= 1024 * 1024 * 1024){
-            
+        else if(blockSIZE >= 512 && blockSIZE <= 1024 * 1024 * 1024){
+            // do nothing
         }
         else {
             fprintf(stderr, "ls: %lli: maximum blocksize is 1G\n", blockSIZE);
@@ -603,4 +691,24 @@ int numOfDigits(long long num) {
         ++count;
     }
     return count;
+}
+
+/**
+ * This function checks for non-printatble characters in the 
+ * string and replaces it with '?'
+ * */
+char* checkNonPrintChars(char* filename){
+    for (int i = 0; i < strlen(filename); i++)
+    {
+        if(!isprint(filename[i])) {
+            if(q_flag) {
+                filename[i] = '?';
+            } else if(w_flag) {
+                // do not replace
+            } else {
+                // do nothing
+            }
+        }
+    }
+    return filename;
 }

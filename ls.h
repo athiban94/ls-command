@@ -40,6 +40,7 @@ int u_flag = 0;
 int w_flag = 0;
 
 blkcnt_t blockSIZE = 0;
+int print_Flag = 0;
 
 
 void handleMuliplePaths(int, int, int, int, char**);
@@ -55,3 +56,5 @@ void getBlocksAllocated();
 blkcnt_t calculateBlockSize(blkcnt_t blocks);
 char* generateHumanReadableSize(off_t);
 int numOfDigits(long long num);
+void traverseDOption(struct f_non_dir non_dirs[], int n, struct f_dir n_dirs[], int m);
+char* checkNonPrintChars(char*);

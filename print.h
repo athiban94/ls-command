@@ -10,6 +10,12 @@
 #include <time.h>
 #include <stdbool.h>
 
+struct perttyPrint
+{
+    int max_filesize;
+};
+
+
 struct printOPT {
     ino_t i_node;
     blkcnt_t blocks_used;
