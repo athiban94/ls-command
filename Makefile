@@ -12,7 +12,7 @@ CMP = cmp
 all: $(TARGET)
 
 $(TARGET): $(TARGET).c 
-		$(CC) -o $(TARGET) $(TARGET).c $(PRINT).c $(CMP).c -lm
+		$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(PRINT).c $(CMP).c -lm
 
 clean: 
 		rm $(TARGET)

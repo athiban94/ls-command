@@ -41,15 +41,14 @@ int w_flag = 0;
 
 blkcnt_t blockSIZE = 0;
 int print_Flag = 0;
-
+bool is_first_dir = true;
 
 void handleMuliplePaths(int, int, int, int, char**);
 void print_errors_args(struct f_error [], int size);
 void print_non_directories(struct f_non_dir [], int size);
 void traverseDirs(struct f_dir [], int size);
-void traverseFiles(char*);
 void traverse_FTS(char**);
-void generatePrint(FTSENT *);
+void generatePrint(FTSENT *, struct perttyPrint pPrint);
 void parseArgFiles(char**);
 bool isDisplayParent();
 void getBlocksAllocated();
@@ -58,3 +57,11 @@ char* generateHumanReadableSize(off_t);
 int numOfDigits(long long num);
 void traverseDOption(struct f_non_dir non_dirs[], int n, struct f_dir n_dirs[], int m);
 char* checkNonPrintChars(char*);
+void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint);
+bool isDisplayTotal(struct perttyPrint *pPrint);
+char* getMonth(time_t time);
+int getDay(time_t time);
+int getHour(time_t time);
+int getMinute(time_t time);
+char* getUserNameByUserId(uid_t uid);
+char* getGroupNameByGroupId(gid_t gid);

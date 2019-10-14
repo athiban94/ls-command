@@ -95,17 +95,15 @@ int main(int argc, char *argv[])
     }
 
     /* Setting the -A flag if the root is running the process*/
-    userId = getuid();
+    userId = geteuid();
     if(userId == 0) {
         A_flag = 1;
     }
 
-    if(s_flag) {
-        if(k_flag) {
-            blockSIZE = 1024;
-        } else  {
-            getBlocksAllocated();
-        }
+    if(k_flag) {
+        blockSIZE = 1024;
+    } else  {
+        getBlocksAllocated();
     }
 
     if(optind == argc) 
@@ -113,7 +111,6 @@ int main(int argc, char *argv[])
         arguments = malloc(1 * sizeof(char*));
         arguments[0] = "./";
         traverse_FTS(arguments);
-        // traverseFiles(".");
     }
     else if (optind == argc - 1)
     {
@@ -133,7 +130,6 @@ int main(int argc, char *argv[])
                 arguments[0] = "../";
             else 
                 arguments[0] = argv[optind];
-            // traverseFiles(argv[optind]);
             traverse_FTS(arguments);
         }
         else 
@@ -207,7 +203,7 @@ void handleMuliplePaths(int n_ferr, int n_dir, int n_nondir, int argc, char **ar
 
 /**
  * This function prints corresponding errors in the 
- * the shell for args - that does not exit in the file
+ * shell for args - that does not exit in the file
  * system
  * */
 void print_errors_args(struct f_error f_error[], int len)
@@ -253,12 +249,6 @@ void traverseDirs(struct f_dir dirs[], int len)
     }
 
     traverse_FTS(args);
-
-    // for (int i = 0; i < len; i++)
-    // {
-    //     printf("%s:\n", dirs[i].f_dirname);
-    //     traverseFiles(dirs[i].f_dirname);
-    // }
 }
 
 
@@ -270,6 +260,9 @@ void traverse_FTS(char **args) {
     FTS *ftsp;
     FTSENT *ftsent;
     FTSENT *children;
+    struct perttyPrint pPrint;
+    pPrint = defaultPrettyPrint();
+    
     int options = FTS_PHYSICAL | FTS_NOCHDIR;
 
     if(a_flag) {
@@ -297,29 +290,50 @@ void traverse_FTS(char **args) {
             continue;
         }
 
-        if(children->fts_level > 1 && !R_flag){
+        if(children->fts_level > 1 && !R_flag) {
             continue;
         }
 
-        if(isDisplayParent()){
-            printf("\n");
-            printf("%s:\n", children->fts_parent->fts_path);
+        if(isDisplayParent() && print_Flag == 1) {
+                printf("\n");
+                printf("%s:\n", children->fts_parent->fts_path);
+        }
+
+        if(isDisplayTotal(&pPrint)) {
+            printf("total %llu\n", pPrint.totalBytesUsed);
         }
         while (children != NULL) {
-            if(strncmp(children->fts_name, ".", 1) == 0) {
-                if(A_flag) {
-                    generatePrint(children);
+            if(print_Flag == 1) {
+                if(strncmp(children->fts_name, ".", 1) == 0) {
+                    if(A_flag) {
+                        generatePrint(children, pPrint);
+                    }
+                } else {
+                    generatePrint(children, pPrint);
                 }
+                
             } else {
-                generatePrint(children);
+                getPrintDetails(children, &pPrint);
             }
             children = children->fts_link;
+            
+            // Resetting the pretty print to default
+            if(print_Flag == 1 && children == NULL) {
+                pPrint = defaultPrettyPrint();
+            }
         }
 
-
-        // if((fts_set(ftsp, ftsent, FTS_AGAIN)) == -1) {
-        //     fprintf(stderr, " error : %s", strerror(errno));
-        // }
+        if(print_Flag == 0) {
+           
+            if((fts_set(ftsp, ftsent, FTS_AGAIN)) == 0) {
+                // printf("Traversing again \n");
+                print_Flag = 1;
+            } else {
+                fprintf(stderr, "fts_set FTS_AGAIN error : %s", strerror(errno));
+            }
+        } else {
+            print_Flag = 0;
+        }
     }
 
     fts_close(ftsp);
@@ -327,36 +341,22 @@ void traverse_FTS(char **args) {
 }
 
 /**
- * This function is used to list all the files(irrespective of the type) based on
- * the options set.
- * */
-void traverseFiles(char *dirpath)
-{
-    DIR				*dp;
-	struct dirent	*dirp;
-    if ((dp = opendir(dirpath)) == NULL)
-        fprintf(stderr, "ls: %s : %s\n", dirpath,strerror(errno));
-    while ((dirp = readdir(dp)) != NULL)
-		printf("%s\n", dirp->d_name);
-    
-    closedir(dp);
-}
-
-/**
  * This funtion is for long listing. -l option
  * */
-void generatePrint(FTSENT *ftsent) {
+void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
     struct stat *stat_info;
     struct printOPT options;
     char *mode_str = malloc(10);
     char *h_filesize;
     char *h_blocksize;
-    struct passwd *pws;
-    struct group *grp;
+    // struct passwd *pws;
+    // struct group *grp;
     time_t time;
-    struct tm *time_data;
     char *path = malloc(ftsent->fts_pathlen + ftsent->fts_namelen + 1);
+    char *usrName;
+    char *grpName;
     char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    
     if(ftsent->fts_level == 0) {
         strcpy(path, ftsent->fts_path);
     } else {
@@ -389,6 +389,8 @@ void generatePrint(FTSENT *ftsent) {
         
     if(l_flag) {
         options.display_file_size = true;
+        options.display_time = true;
+
         strmode(stat_info->st_mode, mode_str);
         options.f_mode = mode_str;
 
@@ -400,18 +402,25 @@ void generatePrint(FTSENT *ftsent) {
             options.uid = stat_info->st_uid;
             options.gid = stat_info->st_gid;
         } else {
-            pws = getpwuid(stat_info->st_uid);
-            options.user_name = pws->pw_name;
+            options.user_name = getUserNameByUserId(stat_info->st_uid);
+            options.groupname = getGroupNameByGroupId(stat_info->st_gid);
+        }
 
-            grp = getgrgid(stat_info->st_gid);
-            options.groupname = grp->gr_name;
+        if(S_ISBLK(stat_info->st_mode) || S_ISCHR(stat_info->st_mode)) {
+            options.major_number = major(stat_info->st_rdev);
+            options.minor_number = minor(stat_info->st_rdev);
+            options.isSpecialFile = true;
+            options.display_file_size = false;
+            
         }
 
         options.f_size = stat_info->st_size;
 
-        if(h_flag){
+        if(h_flag) {
             options.display_file_size = false;
-            options.h_filesize = generateHumanReadableSize(stat_info->st_size);
+            if(!S_ISBLK(stat_info->st_mode) && !S_ISCHR(stat_info->st_mode)) {
+                options.h_filesize = generateHumanReadableSize(stat_info->st_size);
+            }
         }
 
         if(c_flag) {
@@ -419,11 +428,10 @@ void generatePrint(FTSENT *ftsent) {
         } else {
             time = stat_info->st_mtime;
         }
-        time_data = localtime(&time);
-        options.month = month_list[time_data->tm_mon];
-        options.day = time_data->tm_mday;
-        options.hour = time_data->tm_hour;
-        options.minute = time_data->tm_min;
+        options.month = getMonth(time);
+        options.day = getDay(time);
+        options.hour = getHour(time);
+        options.minute = getMinute(time);
 
         if (ftsent->fts_info == FTS_SL)
         {
@@ -463,8 +471,91 @@ void generatePrint(FTSENT *ftsent) {
     options.f_name = checkNonPrintChars(options.f_name);
     // printf("path : %s\n", path);
     
-    display_out(options, ftsent->fts_name);
+    display_out(options, pPrint);
     free(path);
+    free(mode_str);
+}
+
+
+
+/**
+ * Function to get month 
+ * */
+char* getMonth(time_t time) {
+    struct tm *time_data;
+    char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    time_data = localtime(&time);
+    return month_list[time_data->tm_mon];
+
+}
+
+/**
+ * This function retuns username with
+ * uid_t passed as a parameter
+ * */
+char* getUserNameByUserId(uid_t uid) {
+    struct passwd *pws;
+    int n = numOfDigits(uid);
+    char *usrName = malloc(n + 1);
+    char *result;
+    pws = getpwuid(uid);
+    if(pws == NULL) {
+        sprintf(usrName, "%lu", uid);
+        char *result = strdup(usrName);
+        free(usrName);
+        return result;
+    } else {
+        return pws->pw_name;
+    }
+}
+
+
+/**
+ * This function returns groupname with 
+ * g_id passed as a parameter
+ * */
+char* getGroupNameByGroupId(gid_t gid) {
+    struct group *grp;
+    int n = numOfDigits(gid);
+    char *grpName = malloc(n + 1);
+    char *result;
+    grp = getgrgid(gid);
+    if(grp == NULL) {
+        sprintf(grpName, "%lu", gid);
+        char *result = strdup(grpName);
+        free(grpName);
+        return result;
+    } else {
+        return grp->gr_name;
+    }
+}
+
+
+/**
+ * Function to get day
+ * */
+int getDay(time_t time) {
+    struct tm *time_data;
+    time_data = localtime(&time);
+    return time_data->tm_mday;
+}
+
+/**
+ * Function to get hour
+ * */
+int getHour(time_t time) {
+    struct tm *time_data;
+    time_data = localtime(&time);
+    return time_data->tm_hour;
+}
+
+/**
+ * Funtion to get minute
+ * */
+int getMinute(time_t time) {
+    struct tm *time_data;
+    time_data = localtime(&time);
+    return time_data->tm_min;
 }
 
 /**
@@ -498,6 +589,9 @@ void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_d
     for (int i = 0; i < n_dirs; i++)
     {
         d_arguments[j] = f_dir[i].f_dirname;
+        if(d_arguments[j][strlen(d_arguments[j]) - 1] == '/') {
+            d_arguments[j][strlen(d_arguments[j]) - 1] = '\0';
+        }
         j++;
     }
     
@@ -508,6 +602,8 @@ void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_d
 void parseArgFiles(char **args) {
     FTS *ftsp;
     FTSENT *ftsent;
+    struct perttyPrint pPrint;
+    pPrint = defaultPrettyPrint();
     int options = FTS_PHYSICAL | FTS_NOCHDIR;
     if(a_flag) {
         options = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT;
@@ -528,8 +624,7 @@ void parseArgFiles(char **args) {
         else if (ftsent->fts_info == FTS_DP) {
             continue;
         }
-        // printf("%s \n", ftsent->fts_path);
-        generatePrint(ftsent);
+        generatePrint(ftsent, pPrint);
     }
     fts_close(ftsp);
 
@@ -624,7 +719,7 @@ void getBlocksAllocated() {
  * */
 blkcnt_t calculateBlockSize(blkcnt_t blocks) {
     blkcnt_t ret_blockSize;
-    ret_blockSize = blocks / (blockSIZE / 512);
+    ret_blockSize = (long long) (blocks / (blockSIZE / 512));
     return ret_blockSize;
 }
 
@@ -711,4 +806,101 @@ char* checkNonPrintChars(char* filename){
         }
     }
     return filename;
+}
+
+void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
+    struct stat *stat_info;
+    time_t time;
+    stat_info = ftsent->fts_statp;
+    int day;
+
+
+    //Generating maximum i-node
+    if(stat_info->st_ino  >= pPrint->__max_i_node) {
+        pPrint->__max_i_node = stat_info->st_ino;
+    }
+    
+    // Calculating total in case of options -s, -l, -n
+    if(!pPrint->display_total) {
+        pPrint->display_total = true;
+    }
+    pPrint->totalBytesUsed += calculateBlockSize(stat_info->st_blocks);
+    
+    // Calculating the max file size for printing format.
+    if(stat_info->st_size >= pPrint->__max_f_size) {
+        pPrint->__max_f_size = stat_info->st_size;
+    }
+
+    // generating max - human readable file_size
+    if(pPrint->__max_h_filesize == NULL){
+        pPrint->__max_h_filesize = generateHumanReadableSize(stat_info->st_size);
+    } else{
+        if(strlen(generateHumanReadableSize(stat_info->st_size)) >= strlen(pPrint->__max_h_filesize)) {
+            pPrint->__max_h_filesize =  generateHumanReadableSize(stat_info->st_size);
+        }
+    }
+
+    // generating max username
+    if(pPrint->__max_user_name == NULL) {
+        pPrint->__max_user_name = getUserNameByUserId(stat_info->st_uid);
+    } else {
+        if(strlen(getUserNameByUserId(stat_info->st_uid)) >= strlen(pPrint->__max_user_name)) {
+            pPrint->__max_user_name = getUserNameByUserId(stat_info->st_uid);
+        }
+    }
+
+    // generating max groupname
+    if(pPrint->__max_groupname == NULL) {
+        pPrint->__max_groupname = getGroupNameByGroupId(stat_info->st_gid);
+    } else {
+        if(strlen(getGroupNameByGroupId(stat_info->st_gid)) >= strlen(pPrint->__max_groupname)){
+            pPrint->__max_groupname = getGroupNameByGroupId(stat_info->st_gid);
+        }
+    }
+
+    // generating max uid
+    if(stat_info->st_uid >= pPrint->__max_uid) {
+        pPrint->__max_uid = stat_info->st_uid;
+    }
+
+    // generating max gid
+    if(stat_info->st_gid >= pPrint->__max_gid) {
+        pPrint->__max_gid =  stat_info->st_gid;
+    }
+
+    //generating max - day size
+    if(c_flag) {
+        time = stat_info->st_ctime;
+    } else {
+        time = stat_info->st_mtime;
+    }
+    if(getDay(time) >= pPrint->__max_day) {
+        pPrint->__max_day = getDay(time);
+    }
+
+    // generating max - blocks size.
+    if(calculateBlockSize(stat_info->st_blocks) >= pPrint->__max_blocks_used) {
+        pPrint->__max_blocks_used = stat_info->st_blocks;
+    }
+
+    //generating max - readable human block size
+    if(pPrint->__max_h_blocksize == NULL) {
+        pPrint->__max_h_blocksize = generateHumanReadableSize(512 * stat_info->st_blocks);
+    } else {
+        if(strlen(generateHumanReadableSize(512 * stat_info->st_blocks)) >= strlen(pPrint->__max_h_blocksize)){
+            pPrint->__max_h_blocksize = generateHumanReadableSize(512 * stat_info->st_blocks);
+        }
+    }
+
+    // generating maximum number of hardlinks possible
+    if(stat_info->st_nlink >= pPrint->__max_h_links) {
+        pPrint->__max_h_links = stat_info->st_nlink;
+    }
+}
+
+bool isDisplayTotal(struct perttyPrint *pPrint) {
+    if((s_flag  || l_flag || n_flag) && pPrint->display_total) {
+        return true;
+    }
+    return false;
 }
