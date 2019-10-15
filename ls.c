@@ -112,9 +112,12 @@ int main(int argc, char *argv[])
     if(optind == argc) 
     {
         arguments = malloc(1 * sizeof(char*));
+        if(arguments == NULL) {
+            fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+        }
         arguments[0] = "./";
         traverse_FTS(arguments);
-        // free(arguments);
+        free(arguments);
     }
     else if (optind == argc - 1)
     {
@@ -126,6 +129,9 @@ int main(int argc, char *argv[])
         else if(S_ISDIR(sb.st_mode)) 
         {
             arguments = malloc(1 * sizeof(char*));
+            if(arguments == NULL) {
+                fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+            }
             if(strcmp(argv[optind], ".") == 0)
                 arguments[0] = "./";
             else if(strcmp(argv[optind], "..") == 0)
@@ -133,14 +139,17 @@ int main(int argc, char *argv[])
             else 
                 arguments[0] = argv[optind];
             traverse_FTS(arguments);
-            // free(arguments);
+            free(arguments);
         }
         else 
         {
             arguments = malloc(1 * sizeof(char*));
+            if(arguments == NULL) {
+                fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+            }
             arguments[0] = argv[optind];
             parseArgFiles(arguments);
-            // free(arguments);
+            free(arguments);
         }
     }
     else
@@ -237,12 +246,15 @@ void print_non_directories(struct f_non_dir non_dir[], int len)
 {
     int i;
     char **args = malloc(len * sizeof(char*));
+    if(args == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     for (i = 0; i < len; i++)
     {
         args[i] = non_dir[i].f_non_dirname;
     }
     parseArgFiles(args);
-    // free(args);
+    free(args);
 }
 
 /**
@@ -252,20 +264,17 @@ void print_non_directories(struct f_non_dir non_dir[], int len)
 void traverseDirs(struct f_dir dirs[], int len)
 {
     int i;
-    char **args = malloc(len * sizeof(char*) + 1);
+    char **args = malloc(len * sizeof(char*));
+    if(args == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     for (i = 0; i < len; i++)
     {
         args[i] = dirs[i].f_dirname;
     }
 
-    // for (i = 0; i < len; i++)
-    // {
-    //     printf("%s \n", args[i]);
-    // }
-    
-
     traverse_FTS(args);
-    // free(args);
+    free(args);
 }
 
 
@@ -362,11 +371,21 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
     struct stat *stat_info;
     struct printOPT options;
     char *mode_str = malloc(10);
+
+    if(mode_str == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     time_t time;
     char *path = malloc(ftsent->fts_pathlen + ftsent->fts_namelen + 1);
+    if(path == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     char buf[PATH_MAX];
     ssize_t len;
     char *filename_F = malloc(ftsent->fts_namelen + 2);
+    if(filename_F == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     blkcnt_t file_blocks;
     
     if(ftsent->fts_level == 0) {
@@ -482,7 +501,7 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
     display_out(options, pPrint);
     free(path);
     free(mode_str);
-    // free(filename_F);
+    free(filename_F);
 }
 
 
@@ -505,8 +524,11 @@ char* getMonth(time_t time) {
 char* getUserNameByUserId(uid_t uid) {
     struct passwd *pws;
     int n = numOfDigits(uid);
-    char *usrName = malloc(n + 1);
     char *result;
+    char *usrName = malloc(n + 1);
+    if(usrName == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     pws = getpwuid(uid);
     if(pws == NULL) {
         sprintf(usrName, "%u", uid);
@@ -590,6 +612,9 @@ void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_d
     int i;
     int totalSizeArgs = n_files + n_dirs;
     char **d_arguments = malloc(totalSizeArgs * sizeof(char*));
+    if(d_arguments == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     for (i = 0; i < n_files; i++)
     {
         d_arguments[j] = f_non_dir[i].f_non_dirname;
@@ -605,14 +630,9 @@ void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_d
         j++;
     }
 
-    // for ( i = 0; i < totalSizeArgs; i++)
-    // {
-    //     printf("%s \n", d_arguments[i]);
-    // }
-    
     
     parseArgFiles(d_arguments);
-    // free(d_arguments);
+    free(d_arguments);
 }
 
 void parseArgFiles(char **args) {
@@ -711,20 +731,26 @@ void getBlocksAllocated() {
         }
     }
     if(inValidBlocksize) {
-        fprintf(stderr, "ls: %s: unknown blocksize\n", e_blockValue);
-        fprintf(stderr, "ls: maximum blocksize is 1G\n");
-        fprintf(stderr, "ls: %s: minimum blocksize is 512\n", e_blockValue);
+        if(s_flag || l_flag || n_flag) {
+            fprintf(stderr, "ls: %s: unknown blocksize\n", e_blockValue);
+            fprintf(stderr, "ls: maximum blocksize is 1G\n");
+            fprintf(stderr, "ls: %s: minimum blocksize is 512\n", e_blockValue);
+        }
         blockSIZE = 512;
     } else {
         if(blockSIZE < 512) {
-            fprintf(stderr, "ls: %ld: minimum blocksize is 512\n", blockSIZE);
+            if(s_flag || l_flag || n_flag) {
+                fprintf(stderr, "ls: %ld: minimum blocksize is 512\n", blockSIZE);
+            }
             blockSIZE = 512;
         }
         else if(blockSIZE >= 512 && blockSIZE <= 1024 * 1024 * 1024){
 
         }
         else {
-            fprintf(stderr, "ls: %ld: maximum blocksize is 1G\n", blockSIZE);
+            if(s_flag || l_flag || n_flag) {
+                fprintf(stderr, "ls: %ld: maximum blocksize is 1G\n", blockSIZE);
+            }
             blockSIZE = 1024 * 1024 * 1024;
         }
     }
@@ -757,6 +783,9 @@ char* generateHumanReadableSize(off_t size) {
     double num;
     n = numOfDigits(size);
     return_str_size = malloc(n + 2);
+    if(return_str_size == NULL) {
+        fprintf(stderr, "ls: error: %s: \n", strerror(errno));
+    }
     
     while (size >= 1024) {
         size /= 1024;
