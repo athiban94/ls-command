@@ -2,7 +2,7 @@
 CC = gcc
 
 # compiler flags:
-CFLAGS  = -ansi -g -Wall -Werror -Wextra -Wformat=2 -Wjump-misses-init -Wlogical-op -Wpedantic -Wshadow
+CFLAGS  = -g -Wall -Werror -Wextra -Wformat=2 -Wjump-misses-init -Wlogical-op -Wpedantic -Wshadow
 
 # the build target executable:
 TARGET = ls
@@ -19,3 +19,5 @@ clean:
 
 debug:
 		$(CC) -g -o $(TARGET) $(TARGET).c $(PRINT).c $(CMP).c -lm
+flags:
+		$(CC) -o $(TARGET) $(TARGET).c $(PRINT).c $(CMP).c -lm

@@ -2,16 +2,14 @@
 
 void display_out(struct printOPT options, struct perttyPrint pPrint) {
 
-    // printf("Max size : (%llu, %llu) ", pPrint.__max_f_size, options.f_size);
-    
     if(options.i_node != 0){
         calculateAndAddSpacesLongType(pPrint.__max_i_node, options.i_node);
-        printf("%llu ", options.i_node);
+        printf("%lu ", options.i_node);
     }
 
     if(options.display_blocks){
         calculateAndAddSpacesLongType(pPrint.__max_blocks_used, options.blocks_used);
-        printf("%lli ", options.blocks_used);
+        printf("%ld ", options.blocks_used);
     }
 
     if(options.h_blocksize != NULL) {
@@ -27,12 +25,12 @@ void display_out(struct printOPT options, struct perttyPrint pPrint) {
     }
 
     if(options.display_uid_gid) {
-        printf("%lu ", options.uid);
+        printf("%u ", options.uid);
         calculateAndAddSpacesLongType(pPrint.__max_uid, options.uid);
     }
     
     if(options.display_uid_gid) {
-        printf("%lu ", options.gid);
+        printf("%u ", options.gid);
         calculateAndAddSpacesLongType(pPrint.__max_gid, options.gid);
     }
     
@@ -52,7 +50,7 @@ void display_out(struct printOPT options, struct perttyPrint pPrint) {
 
     if(options.display_file_size) {
         calculateAndAddSpacesLongType(pPrint.__max_f_size, options.f_size);
-        printf("%lld ", options.f_size);
+        printf("%ld ", options.f_size);
     }
     if(options.h_filesize != NULL) {
         calculateAndAddSpacesCharType(pPrint.__max_h_filesize, options.h_filesize);
@@ -129,12 +127,13 @@ struct perttyPrint defaultPrettyPrint() {
     return pPrint;
 }
 
-void calculateAndAddSpacesLongType(unsigned long long maxInt, unsigned long long minInt){
+void calculateAndAddSpacesLongType(unsigned long maxInt, unsigned long minInt){
     if(maxInt > minInt) {
+        int i;
         int max_digits = getNumberOfDigits(maxInt);
         int min_digits = getNumberOfDigits(minInt);
         int n = max_digits - min_digits;
-        for (int i = 0; i < n; i++) {
+        for (i = 0; i < n; i++) {
             printf(" ");
         }
     }
@@ -142,10 +141,11 @@ void calculateAndAddSpacesLongType(unsigned long long maxInt, unsigned long long
 
 void calculateAndAddSpacesCharType(char *maxChar , char *minChar) {
     if(maxChar != NULL) {
+        int i;
         int max = strlen(maxChar);
         int min = strlen(minChar);
         int n = max - min;
-        for (int i = 0; i < n; i++)
+        for (i = 0; i < n; i++)
         {
             printf(" ");
         }
@@ -153,7 +153,7 @@ void calculateAndAddSpacesCharType(char *maxChar , char *minChar) {
 }
 
 
-int getNumberOfDigits(unsigned long long num) { 
+int getNumberOfDigits(long num) { 
     int count = 0;
     if(num == 0) {
         return 1;

@@ -5,11 +5,13 @@ int sortLexographical(const FTSENT **fileEntryPointer, const FTSENT **fileEntryP
     const FTSENT *file2 = *fileEntryPointerTwo;
     return strcmp(file1->fts_name, file2->fts_name);
 }
+
 int sortReverseLexographical(const FTSENT **fileEntryPointer, const FTSENT **fileEntryPointerTwo) {
     const FTSENT *file1 = *fileEntryPointer;
     const FTSENT *file2 = *fileEntryPointerTwo;
     return -1 * strcmp(file1->fts_name, file2->fts_name);
 }
+
 int sortFileSizeDescending(const FTSENT **fileEntryPointer, const FTSENT **fileEntryPointerTwo) {
     struct stat *stat_file1, *stat_file2;
     const FTSENT *file1 = *fileEntryPointer;
@@ -38,6 +40,7 @@ int sortFilesByModifiedTime(const FTSENT **fileEntryPointer, const FTSENT **file
         return 1;
     }
 }
+
 int sortFilesByAccessTime(const FTSENT **fileEntryPointer, const FTSENT **fileEntryPointerTwo) {
     struct stat *stat_file1, *stat_file2;
     const FTSENT *file1 = *fileEntryPointer;

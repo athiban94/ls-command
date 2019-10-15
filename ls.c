@@ -3,13 +3,16 @@
 int main(int argc, char *argv[])
 {
     int c;
-    opterr = 0;
-    int n_err = 0, n_nondir = 0, n_dir = 0;
+    int n_err = 0;
+    int n_nondir = 0;
+    int n_dir = 0;
     struct stat sb;
     char **arguments;
     argumentC = argc;
     compar = &sortLexographical;
     uid_t userId;
+    opterr = 0;
+    
     while ((c = getopt(argc, argv, "AacdFfhiklnqRrSstuw")) != -1)
     {
         switch (c)
@@ -111,39 +114,41 @@ int main(int argc, char *argv[])
         arguments = malloc(1 * sizeof(char*));
         arguments[0] = "./";
         traverse_FTS(arguments);
+        // free(arguments);
     }
     else if (optind == argc - 1)
     {
-        if (stat(argv[optind], &sb) == -1) 
+        if (lstat(argv[optind], &sb) == -1) 
         {
             fprintf(stderr, "ls: %s: %s\n", argv[optind], strerror(errno));
             exit(EXIT_FAILURE);
         }
         else if(S_ISDIR(sb.st_mode)) 
         {
-            // arguments = malloc(1 * sizeof(char*));
-            // arguments[0] = argv[optind];
             arguments = malloc(1 * sizeof(char*));
-            if(argv[optind] == ".")
+            if(strcmp(argv[optind], ".") == 0)
                 arguments[0] = "./";
-            else if(argv[optind] == "..")
+            else if(strcmp(argv[optind], "..") == 0)
                 arguments[0] = "../";
             else 
                 arguments[0] = argv[optind];
             traverse_FTS(arguments);
+            // free(arguments);
         }
         else 
         {
             arguments = malloc(1 * sizeof(char*));
             arguments[0] = argv[optind];
             parseArgFiles(arguments);
+            // free(arguments);
         }
     }
     else
     {
-        for (int i = optind; i < argc; i++)
+        int i;
+        for (i = optind; i < argc; i++)
         {
-            if (stat(argv[i], &sb) == -1)
+            if (lstat(argv[i], &sb) == -1)
                 n_err++;
             else if (S_ISDIR(sb.st_mode))
                 n_dir++;
@@ -160,15 +165,18 @@ int main(int argc, char *argv[])
  * */
 void handleMuliplePaths(int n_ferr, int n_dir, int n_nondir, int argc, char **argv)
 {
+    int i;
     struct stat sb;
+    int i_ferr = 0;
+    int i_ndir = 0;
+    int i_nondir = 0;
     struct f_error f_err[n_ferr];
     struct f_dir f_directories[n_dir];
     struct f_non_dir f_nondir[n_nondir];
-    int i_ferr = 0, i_ndir = 0, i_nondir = 0;
 
-    for (int i = optind; i < argc; i++)
+    for (i = optind; i < argc; i++)
     {
-        if (stat(argv[i], &sb) == -1)
+        if (lstat(argv[i], &sb) == -1)
         {
             f_err[i_ferr].f_error_path = argv[i];
             i_ferr++;
@@ -208,14 +216,15 @@ void handleMuliplePaths(int n_ferr, int n_dir, int n_nondir, int argc, char **ar
  * */
 void print_errors_args(struct f_error f_error[], int len)
 {
+    int i;
     struct stat sb;
     char *file;
-    for (int i = 0; i < len; i++)
+    for (i = 0; i < len; i++)
     {
         file = f_error[i].f_error_path;
         if (stat(file, &sb) == -1)
         {
-            printf("ls: %s : %s\n", file, strerror(errno));
+            fprintf(stderr,"ls: %s : %s\n", file, strerror(errno));
         }
     }
 }
@@ -226,13 +235,14 @@ void print_errors_args(struct f_error f_error[], int len)
  * */
 void print_non_directories(struct f_non_dir non_dir[], int len)
 {
+    int i;
     char **args = malloc(len * sizeof(char*));
-    for (int i = 0; i < len; i++)
+    for (i = 0; i < len; i++)
     {
-        // printf("%s\t", non_dir[i].f_non_dirname);
         args[i] = non_dir[i].f_non_dirname;
     }
     parseArgFiles(args);
+    // free(args);
 }
 
 /**
@@ -241,14 +251,21 @@ void print_non_directories(struct f_non_dir non_dir[], int len)
  * */
 void traverseDirs(struct f_dir dirs[], int len)
 {
+    int i;
     char **args = malloc(len * sizeof(char*));
-
-    for (int i = 0; i < len; i++)
+    for (i = 0; i < len; i++)
     {
         args[i] = dirs[i].f_dirname;
     }
 
+    // for (i = 0; i < len; i++)
+    // {
+    //     printf("%s \n", args[i]);
+    // }
+    
+
     traverse_FTS(args);
+    // free(args);
 }
 
 
@@ -260,11 +277,12 @@ void traverse_FTS(char **args) {
     FTS *ftsp;
     FTSENT *ftsent;
     FTSENT *children;
+    int options;
     struct perttyPrint pPrint;
     pPrint = defaultPrettyPrint();
-    
-    int options = FTS_PHYSICAL | FTS_NOCHDIR;
 
+
+    options = FTS_PHYSICAL | FTS_NOCHDIR;
     if(a_flag) {
         options = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT;
         A_flag = 1;
@@ -272,7 +290,6 @@ void traverse_FTS(char **args) {
 
 
     if((ftsp = fts_open(args, options, compar)) == NULL) {
-        //double check with professor - not throwing error for invalid
         fprintf(stderr, "ls : %s\n", strerror(errno));
         exit(EXIT_SUCCESS);
     }
@@ -300,7 +317,7 @@ void traverse_FTS(char **args) {
         }
 
         if(isDisplayTotal(&pPrint)) {
-            printf("total %llu\n", pPrint.totalBytesUsed);
+            printf("total %lu\n", pPrint.totalBytesUsed);
         }
         while (children != NULL) {
             if(print_Flag == 1) {
@@ -317,7 +334,6 @@ void traverse_FTS(char **args) {
             }
             children = children->fts_link;
             
-            // Resetting the pretty print to default
             if(print_Flag == 1 && children == NULL) {
                 pPrint = defaultPrettyPrint();
             }
@@ -326,7 +342,6 @@ void traverse_FTS(char **args) {
         if(print_Flag == 0) {
            
             if((fts_set(ftsp, ftsent, FTS_AGAIN)) == 0) {
-                // printf("Traversing again \n");
                 print_Flag = 1;
             } else {
                 fprintf(stderr, "fts_set FTS_AGAIN error : %s", strerror(errno));
@@ -347,15 +362,12 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
     struct stat *stat_info;
     struct printOPT options;
     char *mode_str = malloc(10);
-    char *h_filesize;
-    char *h_blocksize;
-    // struct passwd *pws;
-    // struct group *grp;
     time_t time;
     char *path = malloc(ftsent->fts_pathlen + ftsent->fts_namelen + 1);
-    char *usrName;
-    char *grpName;
-    char *month_list[12] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+    char buf[PATH_MAX];
+    ssize_t len;
+    char *filename_F = malloc(ftsent->fts_namelen + 2);
+    blkcnt_t file_blocks;
     
     if(ftsent->fts_level == 0) {
         strcpy(path, ftsent->fts_path);
@@ -363,10 +375,6 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
         strcpy(path, ftsent->fts_path);
         strcat(path, ftsent->fts_name);
     }
-    char buf[PATH_MAX];
-    ssize_t len;
-    char *filename_F = malloc(ftsent->fts_namelen + 2);
-    blkcnt_t file_blocks;
     
     /* Getting the stat informnation */
     stat_info = ftsent->fts_statp;
@@ -380,7 +388,6 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
             options.display_blocks = true;
             options.blocks_used = file_blocks;
         }
-        // printf("block size :: %lli ", file_blocks);
     }
     
     /* i-flag - option */
@@ -425,8 +432,10 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
 
         if(c_flag) {
             time = stat_info->st_ctime;
-        } else {
+        } else if(t_flag) {
             time = stat_info->st_mtime;
+        } else {
+            time = stat_info->st_atime;
         }
         options.month = getMonth(time);
         options.day = getDay(time);
@@ -455,7 +464,7 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
         if(S_ISLNK(stat_info->st_mode))
             strcat(filename_F, "@");
         if(S_ISREG(stat_info->st_mode)){
-            if(stat_info->st_mode & S_IXUSR) {
+            if(stat_info->st_mode & (S_IXUSR | S_IXGRP | S_IXOTH)) {
                 strcat(filename_F, "*");
             }
         }
@@ -469,11 +478,11 @@ void generatePrint(FTSENT *ftsent, struct perttyPrint pPrint) {
     }
     
     options.f_name = checkNonPrintChars(options.f_name);
-    // printf("path : %s\n", path);
     
     display_out(options, pPrint);
     free(path);
     free(mode_str);
+    // free(filename_F);
 }
 
 
@@ -500,8 +509,8 @@ char* getUserNameByUserId(uid_t uid) {
     char *result;
     pws = getpwuid(uid);
     if(pws == NULL) {
-        sprintf(usrName, "%lu", uid);
-        char *result = strdup(usrName);
+        sprintf(usrName, "%u", uid);
+        result = strdup(usrName);
         free(usrName);
         return result;
     } else {
@@ -521,8 +530,8 @@ char* getGroupNameByGroupId(gid_t gid) {
     char *result;
     grp = getgrgid(gid);
     if(grp == NULL) {
-        sprintf(grpName, "%lu", gid);
-        char *result = strdup(grpName);
+        sprintf(grpName, "%u", gid);
+        result = strdup(grpName);
         free(grpName);
         return result;
     } else {
@@ -576,42 +585,50 @@ bool isDisplayParent() {
 /**
  * This function is called when -d option is set.
  * */
-void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_dir[], int n_dirs){
+void traverseDOption(struct f_non_dir f_non_dir[], int n_files, struct f_dir f_dir[], int n_dirs) {
+    int j = 0;
+    int i;
     int totalSizeArgs = n_files + n_dirs;
     char **d_arguments = malloc(totalSizeArgs * sizeof(char*));
-    int j = 0;
-    for (int i = 0; i < n_files; i++)
+    for (i = 0; i < n_files; i++)
     {
         d_arguments[j] = f_non_dir[i].f_non_dirname;
         j++;
     }
 
-    for (int i = 0; i < n_dirs; i++)
+    for (i = 0; i < n_dirs; i++)
     {
         d_arguments[j] = f_dir[i].f_dirname;
-        if(d_arguments[j][strlen(d_arguments[j]) - 1] == '/') {
-            d_arguments[j][strlen(d_arguments[j]) - 1] = '\0';
-        }
+        // if(d_arguments[j][strlen(d_arguments[j]) - 1] == '/') {
+        //     d_arguments[j][strlen(d_arguments[j]) - 1] = '\0';
+        // }
         j++;
     }
+
+    // for ( i = 0; i < totalSizeArgs; i++)
+    // {
+    //     printf("%s \n", d_arguments[i]);
+    // }
+    
     
     parseArgFiles(d_arguments);
-    free(d_arguments);
+    // free(d_arguments);
 }
 
 void parseArgFiles(char **args) {
+    int options;
     FTS *ftsp;
     FTSENT *ftsent;
     struct perttyPrint pPrint;
     pPrint = defaultPrettyPrint();
-    int options = FTS_PHYSICAL | FTS_NOCHDIR;
+    
+    options = FTS_PHYSICAL | FTS_NOCHDIR;
     if(a_flag) {
         options = FTS_PHYSICAL | FTS_NOCHDIR | FTS_SEEDOT;
         A_flag = 1;
     }
 
     if((ftsp = fts_open(args, options, compar)) == NULL) {
-        //double check with professor - not throwing error for invalid
         fprintf(stderr, "ls : %s\n", strerror(errno));
         exit(EXIT_SUCCESS);
     }
@@ -638,6 +655,8 @@ void parseArgFiles(char **args) {
  * blocks actually used by each file
  * */
 void getBlocksAllocated() {
+    unsigned int i;
+    int len;
     char *e_blockValue;
     bool inValidBlocksize = false;
     e_blockValue = getenv("BLOCKSIZE");
@@ -645,15 +664,14 @@ void getBlocksAllocated() {
         blockSIZE = 512;
     }
     
-    int len = strlen(e_blockValue);
+    len = strlen(e_blockValue);
     if(len == 1) {
         blockSIZE = 1;
     }
 
-    for (int i = 0; i < strlen(e_blockValue); i++)
+    for (i = 0; i < strlen(e_blockValue); i++)
     {
         char ch =  e_blockValue[i];
-        long multiplier = 1024;
         if(isalpha(ch)){
             switch (ch)
             {
@@ -699,14 +717,14 @@ void getBlocksAllocated() {
         blockSIZE = 512;
     } else {
         if(blockSIZE < 512) {
-            fprintf(stderr, "ls: %lli: minimum blocksize is 512\n", blockSIZE);
+            fprintf(stderr, "ls: %ld: minimum blocksize is 512\n", blockSIZE);
             blockSIZE = 512;
         }
         else if(blockSIZE >= 512 && blockSIZE <= 1024 * 1024 * 1024){
-            // do nothing
+
         }
         else {
-            fprintf(stderr, "ls: %lli: maximum blocksize is 1G\n", blockSIZE);
+            fprintf(stderr, "ls: %ld: maximum blocksize is 1G\n", blockSIZE);
             blockSIZE = 1024 * 1024 * 1024;
         }
     }
@@ -719,7 +737,7 @@ void getBlocksAllocated() {
  * */
 blkcnt_t calculateBlockSize(blkcnt_t blocks) {
     blkcnt_t ret_blockSize;
-    ret_blockSize = (long long) (blocks / (blockSIZE / 512));
+    ret_blockSize = (unsigned long) (blocks / (blockSIZE / 512));
     return ret_blockSize;
 }
 
@@ -731,12 +749,14 @@ blkcnt_t calculateBlockSize(blkcnt_t blocks) {
 char* generateHumanReadableSize(off_t size) {
     
     int i = 0;
+    char *return_str_size;
+    char  *result;
     int n;
     float acc_Size = size;
     char *units[] = {"B", "K", "M", "G", "T"};
     double num;
     n = numOfDigits(size);
-    char *return_str_size = malloc(n + 2);
+    return_str_size = malloc(n + 2);
     
     while (size >= 1024) {
         size /= 1024;
@@ -744,42 +764,41 @@ char* generateHumanReadableSize(off_t size) {
     }
     
     if(i == 0) {
-        sprintf(return_str_size, "%d%s", size, units[i]);
+        sprintf(return_str_size, "%ld%s", size, units[i]);
     } else {
-        if(units[i] == "K") {
+        if(strcmp(units[i], "K") == 0) {
             num = (double)acc_Size / (double)1024;
             if(num > 9) {
-                int size = (int) (round(num));
-                sprintf(return_str_size, "%d%s",  size, units[i]);
+                int size_temp = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size_temp, units[i]);
             } else {
                 sprintf(return_str_size, "%.1f%s", num, units[i]);
             }
 
-        } else if(units[i] == "M") {
+        } else if(strcmp(units[i], "M") == 0) {
             num = (double)acc_Size / (double)(1024 * 1024);
             if(num > 9) {
-                int size = (int) (round(num));
-                sprintf(return_str_size, "%d%s",  size, units[i]);
+                int size_temp = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size_temp, units[i]);
             } else {
                 sprintf(return_str_size, "%.1f%s", num, units[i]);
             }
         } else {
-            // acc_Size /= (1024 * 1024 * 1024);
             num = (double)acc_Size / (double)(1024 * 1024 * 1024);
             if(num > 9) {
-                int size = (int) (round(num));
-                sprintf(return_str_size, "%d%s",  size, units[i]);
+                int size_temp = (int) (round(num));
+                sprintf(return_str_size, "%d%s",  size_temp, units[i]);
             } else {
                 sprintf(return_str_size, "%.1f%s", num, units[i]);
             }
         }
     }
-    char  *result = strdup(return_str_size);
+    result = strdup(return_str_size);
     free(return_str_size);
     return result;
 }
 
-int numOfDigits(long long num) {
+int numOfDigits(long num) {
     int count = 1;
     while(num != 0) {
         num /= 10;
@@ -793,15 +812,14 @@ int numOfDigits(long long num) {
  * string and replaces it with '?'
  * */
 char* checkNonPrintChars(char* filename){
-    for (int i = 0; i < strlen(filename); i++)
+    unsigned int i;
+    for (i = 0; i < strlen(filename); i++)
     {
         if(!isprint(filename[i])) {
             if(q_flag) {
                 filename[i] = '?';
             } else if(w_flag) {
-                // do not replace
             } else {
-                // do nothing
             }
         }
     }
@@ -812,26 +830,21 @@ void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
     struct stat *stat_info;
     time_t time;
     stat_info = ftsent->fts_statp;
-    int day;
 
 
-    //Generating maximum i-node
     if(stat_info->st_ino  >= pPrint->__max_i_node) {
         pPrint->__max_i_node = stat_info->st_ino;
     }
     
-    // Calculating total in case of options -s, -l, -n
     if(!pPrint->display_total) {
         pPrint->display_total = true;
     }
     pPrint->totalBytesUsed += calculateBlockSize(stat_info->st_blocks);
     
-    // Calculating the max file size for printing format.
     if(stat_info->st_size >= pPrint->__max_f_size) {
         pPrint->__max_f_size = stat_info->st_size;
     }
 
-    // generating max - human readable file_size
     if(pPrint->__max_h_filesize == NULL){
         pPrint->__max_h_filesize = generateHumanReadableSize(stat_info->st_size);
     } else{
@@ -840,7 +853,6 @@ void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
         }
     }
 
-    // generating max username
     if(pPrint->__max_user_name == NULL) {
         pPrint->__max_user_name = getUserNameByUserId(stat_info->st_uid);
     } else {
@@ -849,7 +861,6 @@ void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
         }
     }
 
-    // generating max groupname
     if(pPrint->__max_groupname == NULL) {
         pPrint->__max_groupname = getGroupNameByGroupId(stat_info->st_gid);
     } else {
@@ -858,32 +869,30 @@ void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
         }
     }
 
-    // generating max uid
     if(stat_info->st_uid >= pPrint->__max_uid) {
         pPrint->__max_uid = stat_info->st_uid;
     }
 
-    // generating max gid
     if(stat_info->st_gid >= pPrint->__max_gid) {
         pPrint->__max_gid =  stat_info->st_gid;
     }
 
-    //generating max - day size
     if(c_flag) {
         time = stat_info->st_ctime;
-    } else {
+    } else if(t_flag) {
         time = stat_info->st_mtime;
+    } else {
+        time = stat_info->st_atime;
     }
+
     if(getDay(time) >= pPrint->__max_day) {
         pPrint->__max_day = getDay(time);
     }
 
-    // generating max - blocks size.
     if(calculateBlockSize(stat_info->st_blocks) >= pPrint->__max_blocks_used) {
         pPrint->__max_blocks_used = stat_info->st_blocks;
     }
 
-    //generating max - readable human block size
     if(pPrint->__max_h_blocksize == NULL) {
         pPrint->__max_h_blocksize = generateHumanReadableSize(512 * stat_info->st_blocks);
     } else {
@@ -892,7 +901,6 @@ void getPrintDetails(FTSENT *ftsent, struct perttyPrint *pPrint) {
         }
     }
 
-    // generating maximum number of hardlinks possible
     if(stat_info->st_nlink >= pPrint->__max_h_links) {
         pPrint->__max_h_links = stat_info->st_nlink;
     }

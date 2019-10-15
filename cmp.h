@@ -3,7 +3,7 @@
 #include <time.h>
 #include <string.h>
 #include <fts.h>
-static int (*compar) (const FTSENT **, const FTSENT **); 
+int (*compar) (const FTSENT **, const FTSENT **); 
 
 int sortLexographical(const FTSENT **fileEntryPointer, const FTSENT **fileEntryPointerTwo);
 int sortReverseLexographical(const FTSENT **fileEntryPointer, const FTSENT **fileEntryPointerTwo);

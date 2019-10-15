@@ -12,7 +12,7 @@
 
 struct perttyPrint
 {
-    unsigned long long  totalBytesUsed; 
+    unsigned long       totalBytesUsed; 
     ino_t               __max_i_node;
     blkcnt_t            __max_blocks_used;
     char                *__max_h_blocksize;
@@ -65,6 +65,6 @@ struct printOPT initialize_options_null();
 struct perttyPrint defaultPrettyPrint();
 void display_out(struct printOPT options, struct perttyPrint pPrint);
 void initialize_default_options(struct printOPT *options);
-void calculateAndAddSpacesLongType(unsigned long long, unsigned long long);
+void calculateAndAddSpacesLongType(unsigned long, unsigned long);
 void calculateAndAddSpacesCharType(char* , char*);
-int getNumberOfDigits(unsigned long long);
+int getNumberOfDigits(long);
