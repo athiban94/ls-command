@@ -252,7 +252,7 @@ void print_non_directories(struct f_non_dir non_dir[], int len)
 void traverseDirs(struct f_dir dirs[], int len)
 {
     int i;
-    char **args = malloc(len * sizeof(char*));
+    char **args = malloc(len * sizeof(char*) + 1);
     for (i = 0; i < len; i++)
     {
         args[i] = dirs[i].f_dirname;
